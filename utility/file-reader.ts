@@ -3,7 +3,7 @@ import fs from 'fs';
 import { readChunk } from 'read-chunk';
 import { fileTypeFromBuffer } from 'file-type';
 import { PDFParse } from 'pdf-parse';
-import XLSX from 'xlsx';
+import * as XLSX from "xlsx";
 import mammoth from 'mammoth';
 import OfficeParser from 'officeparser';
 import axios from 'axios';
