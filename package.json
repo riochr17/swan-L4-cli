@@ -1,6 +1,6 @@
 {
   "name": "@ssww.one/l4cli",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "",
   "main": "dist/index.js",
   "publishConfig": {
@@ -25,6 +25,7 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
     "@ssww.one/framework": "^0.6.1",
     "@ssww.one/l4": "^0.0.9",
     "axios": "^1.18.1",

@@ -46,7 +46,7 @@ npm install -g @ssww.one/l4cli
 
 ### Pre-compiled Standalone Binaries
 
-Alternatively, you can download pre-compiled standalone executables for Linux, macOS, and Windows directly from the [v0.0.5-alpha Release Page](https://github.com/riochr17/swan-L4-cli/releases/tag/0.0.5-alpha).
+Alternatively, you can download pre-compiled standalone executables for Linux, macOS, and Windows directly from the [v0.0.6-alpha Release Page](https://github.com/riochr17/swan-L4-cli/releases/tag/0.0.6-alpha).
 
 ### Local Development Setup
 
@@ -84,8 +84,14 @@ OPENAI_MODEL=your-model-name
 LOCALE=en
 
 # Optional: only if you use FIND keyword
+LOCAL_EMBEDDING_MODEL=./my-model-folder/all-MiniLM-L6-v2
+HOSTED_EMBEDDING_MODEL=Xenova/all-MiniLM-L6-v2
 OPENAI_VECTOR_MODEL=your-vector-model-name
 ```
+
+On `HOSTED_EMBEDDING_MODEL` embedding model will be downloaded when first FIND operation found.
+
+Embedding model priority: `LOCAL_EMBEDDING_MODEL`, `HOSTED_EMBEDDING_MODEL`, `OPENAI_VECTOR_MODEL`
 
 ## Usage
 

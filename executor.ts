@@ -7,9 +7,15 @@ import { ContinueLoop, ExitLoop, ExitProgram } from "./errors";
 import axios from "axios";
 import { AxiosError } from "axios";
 import path from "path";
+import { env, pipeline } from '@huggingface/transformers';
 
 let global_context: Record<string, string> = {};
 let macro_urls: Record<string, string> = {};
+
+export interface EmbeddingModel {
+  type: 'local' | 'hosted' | 'openai' | 'none'
+  value: string
+}
 
 export interface RunProgramParam {
   source: string
@@ -18,7 +24,7 @@ export interface RunProgramParam {
   level?: number
   relative_dir: string
   initial_context?: string
-  semantic_model?: string
+  semantic_model: EmbeddingModel
   silent?: boolean
 }
 
@@ -43,7 +49,8 @@ export function runProgram(param: RunProgramParam): Promise<string> {
             level: param.level,
             relative_dir: param.relative_dir,
             initial_context: param.initial_context,
-            silent: param.silent
+            silent: param.silent,
+            semantic_model: param.semantic_model
           }));
         } catch (err) {
           reject(err);
@@ -60,7 +67,7 @@ export interface ExecuteParam {
   level?: number
   relative_dir: string
   initial_context?: string
-  semantic_model?: string
+  semantic_model: EmbeddingModel
   silent?: boolean
 }
 
@@ -97,7 +104,7 @@ export interface ExecuteNodesParam {
   customListener?: (context: string) => Promise<string>
   level?: number
   relative_dir: string
-  semantic_model?: string
+  semantic_model: EmbeddingModel
   silent?: boolean
 }
 
@@ -126,7 +133,7 @@ export interface ExecuteNodeParam {
   customListener?: (context: string) => Promise<string>
   level?: number,
   relative_dir: string
-  semantic_model?: string
+  semantic_model: EmbeddingModel
   silent?: boolean
 }
 
@@ -248,7 +255,8 @@ export async function executeNode(param: ExecuteNodeParam): Promise<string> {
         },
         level: sub_agent_level,
         relative_dir: param.relative_dir,
-        silent: param.silent
+        silent: param.silent,
+        semantic_model: param.semantic_model
       });
       break;
     case "If":
@@ -272,7 +280,8 @@ export async function executeNode(param: ExecuteNodeParam): Promise<string> {
           customListener: param.customListener,
           level: param.level,
           relative_dir: param.relative_dir,
-          silent: param.silent
+          silent: param.silent,
+          semantic_model: param.semantic_model
         });
       } else {
         output = await executeNodes({
@@ -282,7 +291,8 @@ export async function executeNode(param: ExecuteNodeParam): Promise<string> {
           customListener: param.customListener,
           level: param.level,
           relative_dir: param.relative_dir,
-          silent: param.silent
+          silent: param.silent,
+          semantic_model: param.semantic_model
         });
       }
       break;
@@ -299,7 +309,8 @@ export async function executeNode(param: ExecuteNodeParam): Promise<string> {
             customListener: param.customListener,
             level: param.level,
             relative_dir: param.relative_dir,
-            silent: param.silent
+            silent: param.silent,
+            semantic_model: param.semantic_model
           });
         } catch (err) {
           if (err instanceof ExitLoop) {
@@ -340,17 +351,80 @@ export async function executeNode(param: ExecuteNodeParam): Promise<string> {
       
       const chunks: string[] = splitIntoNGroups(source, total_chunks);
       const vectors: number[][] = [];
-      const semantic_model = param.semantic_model || 'text-embedding-3-small';
+      
+      async function vectorizer(text: string): Promise<number[]> {
+        switch (param.semantic_model.type) {
+          case "local":
+            const local_model_config = verifyAndExtractModelPath(param.semantic_model.value);
+            if (!local_model_config.isValid) {
+              throw new Error(`Your local model path invalid: ${local_model_config.error}`);
+            }
+            
+            // Configure environment variables
+            env.localModelPath = local_model_config.localModelPath;
+            env.allowRemoteModels = false; // Prevents making requests to Hugging Face
+            env.allowLocalModels = true;
+
+            const extractor1 = await pipeline('feature-extraction', local_model_config.modelIdentifier);
+            return Array.from(await extractor1(text, { pooling: 'mean', normalize: true }));
+          case "hosted":
+            const extractor2 = await pipeline('feature-extraction', param.semantic_model.value, {
+              progress_callback(data) {
+                if (data.status === 'initiate') {
+                  if (!param.silent) clean_loading?.softClean();
+                  clean_loading = printLoading(`📦 Initiating download: ${data.file}`, param.level);
+                  return;
+                }
+
+                // 2. Triggered continuously as file chunks stream over the network
+                if (data.status === 'progress') {
+                  const percentage = data.progress.toFixed(1);
+                  const loadedMb = (data.loaded / (1024 * 1024)).toFixed(2);
+                  const totalMb = (data.total / (1024 * 1024)).toFixed(2);
+
+                  // Simple ASCII progress bar calculation
+                  const barWidth = 20;
+                  const filledWidth = Math.floor((data.progress / 100) * barWidth);
+                  const progressBar = '█'.repeat(filledWidth) + '░'.repeat(barWidth - filledWidth);
+
+                  // Write directly to stdout to rewrite the same log line dynamically
+                  if (!param.silent) clean_loading?.softClean();
+                  clean_loading = printLoading(`[${progressBar}] ${percentage}% | ${loadedMb} MB / ${totalMb} MB (${data.file})`, param.level);
+                  return;
+                }
+
+                // 3. Triggered when an individual file completely finishes downloading
+                if (data.status === 'done') {
+                  if (!param.silent) clean_loading?.softClean();
+                  clean_loading = printLoading(`[████████████████████] 100% | Complete! (${data.file})`, param.level);
+                  return;
+                }
+
+                // 4. Triggered when all pipeline components are compiled and ready to compute
+                if (data.status === 'ready') {
+                  if (!param.silent) clean_loading?.softClean();
+                  clean_loading = printLoading(`All model elements are locked and ready for execution!`, param.level);
+                }
+              }
+            });
+            return Array.from(await extractor2(text, { pooling: 'mean', normalize: true }));
+          case "openai":
+            const open_ai_embedding_model = param.semantic_model.value || 'text-embedding-3-small';
+            return await param.llm.vectorize(text, open_ai_embedding_model);
+          case "none":
+            throw new Error(`You cant use FIND feature without specify embedding model, use one of LOCAL_EMBEDDING_MODEL, HOSTED_EMBEDDING_MODEL, or OPENAI_VECTOR_MODEL`)
+        }
+      }
       let k = 1;
       try {
         for (const chunk of chunks) {
           if (!param.silent) clean_loading = printLoading(`Vectorizing chunk ${k}/${chunks.length}...`, param.level);
-          vectors.push(await param.llm.vectorize(chunk, semantic_model));
+          vectors.push(await vectorizer(chunk));
           if (!param.silent) clean_loading.softClean();
           k++;
         }
         if (!param.silent) clean_loading = printLoading(`Vectorizing query...`, param.level);
-        const query_vector = await param.llm.vectorize(param.node.query || '', semantic_model);
+        const query_vector = await vectorizer(param.node.query || '');
         if (!param.silent) clean_loading.softClean();
         if (!param.silent) clean_loading = printLoading(`Calculate most relevant vectors...`, param.level);
         const top_most_indices = topNMostRelevantIndices(vectors, query_vector, result_chunks);
@@ -359,7 +433,9 @@ export async function executeNode(param: ExecuteNodeParam): Promise<string> {
         const result = top_most_indices.map(i => `# Doc ${i + 1}\n${chunks[i]}`).join('\n\n---\n');
         if (param.node.debug) printDebug(`Result:\n${result}`);
         output = result;
-      } catch (err) {} finally {
+      } catch (err) {
+        throw err;
+      } finally {
         clean_loading?.clean();
       }
       break;
@@ -547,3 +623,67 @@ function splitIntoNGroups(str: string, N: number): string[] {
 
     return result;
 }
+
+interface ModelPipelineConfig {
+  localModelPath: string; // The base directory path for Transformers.js
+  modelIdentifier: string; // The model ID folder name to pass to pipeline()
+  isValid: boolean;
+  error?: string;
+}
+
+export function verifyAndExtractModelPath(userInputPath: string): ModelPipelineConfig {
+  try {
+    // 1. Resolve to a strict absolute path to prevent traversal issues
+    const absolutePath = path.resolve(userInputPath);
+
+    // 2. Check if the path exists on the disk
+    if (!fs.existsSync(absolutePath)) {
+      return { localModelPath: '', modelIdentifier: '', isValid: false, error: 'Path does not exist.' };
+    }
+
+    // 3. Ensure it is a directory, not a file
+    const stats = fs.statSync(absolutePath);
+    if (!stats.isDirectory()) {
+      return { localModelPath: '', modelIdentifier: '', isValid: false, error: 'Path is a file, expected a directory.' };
+    }
+
+    // 4. Validate minimum required structure for Transformers.js ONNX execution
+    const configPath = path.join(absolutePath, 'config.json');
+    const onnxDir = path.join(absolutePath, 'onnx');
+
+    if (!fs.existsSync(configPath)) {
+      return { localModelPath: '', modelIdentifier: '', isValid: false, error: 'Missing critical "config.json" in model root directory.' };
+    }
+
+    if (!fs.existsSync(onnxDir) || !fs.statSync(onnxDir).isDirectory()) {
+      return { localModelPath: '', modelIdentifier: '', isValid: false, error: 'Missing critical "onnx/" sub-directory.' };
+    }
+
+    // Ensure at least one .onnx model exists inside the onnx folder
+    const onnxFiles = fs.readdirSync(onnxDir).filter(file => file.endsWith('.onnx'));
+    if (onnxFiles.length === 0) {
+      return { localModelPath: '', modelIdentifier: '', isValid: false, error: 'No ".onnx" files found inside the "onnx/" directory.' };
+    }
+
+    // 5. Extract values for the configuration pipeline
+    // modelIdentifier is the last directory name (e.g., 'local-model')
+    const modelIdentifier = path.basename(absolutePath);
+    // localModelPath is the parent directory (e.g., '/my-project/')
+    const localModelPath = path.dirname(absolutePath);
+
+    return {
+      localModelPath,
+      modelIdentifier,
+      isValid: true
+    };
+
+  } catch (err: any) {
+    return {
+      localModelPath: '',
+      modelIdentifier: '',
+      isValid: false,
+      error: `System error validating path: ${err?.message || err}`
+    };
+  }
+}
+

@@ -5,7 +5,7 @@ dotenv.config({ quiet: true, debug: false });
 
 import path from 'path';
 import { setLocale } from "@ssww.one/l4";
-import { runProgram } from "./executor";
+import { EmbeddingModel, runProgram } from "./executor";
 import { OpenAILLM } from "@ssww.one/framework";
 import { readFileSync } from "node:fs";
 
@@ -27,5 +27,25 @@ const llm = new OpenAILLM({
   apiKey: process.env.OPENAI_APIKEY || '',
   model: process.env.OPENAI_MODEL || '',
 });
-const semantic_model = process.env.OPENAI_VECTOR_MODEL;
-runProgram({ source, llm, relative_dir, initial_context, semantic_model }).then(s => { }).catch(console.error);
+const semantic_model: EmbeddingModel = { type: 'none', value: '' };
+if (process.env.LOCAL_EMBEDDING_MODEL) {
+  semantic_model.type = 'local';
+  semantic_model.value = process.env.LOCAL_EMBEDDING_MODEL;
+} else {
+  if (process.env.HOSTED_EMBEDDING_MODEL) {
+    semantic_model.type = 'hosted';
+    semantic_model.value = process.env.HOSTED_EMBEDDING_MODEL;
+  } else {
+    if (process.env.OPENAI_VECTOR_MODEL) {
+      semantic_model.type = 'openai';
+      semantic_model.value = process.env.OPENAI_VECTOR_MODEL;
+    }
+  }
+}
+runProgram({
+  source,
+  llm,
+  relative_dir,
+  initial_context,
+  semantic_model
+}).then(s => { }).catch(console.error);
