@@ -1,6 +1,8 @@
 TITLE Semantic Search with find paralel
+
 PARALEL:
   READ ../package.json
   READ ../README.md
+  READ https://bitcoin.org/bitcoin.pdf
 FIND 2/10 what are all dependencies on this project?
 SAY THINK Tell me does this project uses typescript and dotenvx?

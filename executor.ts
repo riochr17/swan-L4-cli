@@ -8,9 +8,11 @@ import axios from "axios";
 import { AxiosError } from "axios";
 import path from "path";
 import { env, pipeline } from '@huggingface/transformers';
+import { superRead } from "./utility/file-reader";
 
 let global_context: Record<string, string> = {};
 let macro_urls: Record<string, string> = {};
+let embedding_extractor: any | null = null;
 
 export interface EmbeddingModel {
   type: 'local' | 'hosted' | 'openai' | 'none'
@@ -143,14 +145,9 @@ export async function executeNode(param: ExecuteNodeParam): Promise<string> {
   let clean_loading: any;
   switch (param.node.type) {
     case "Read":
-      if (!param.node.path) {
-        throw new Error(`Path ${param.node.path} doesnt exist`);
-      }
-      const abs_r1_path = path.resolve(param.relative_dir, param.node.path);
-      if (!fs.existsSync(abs_r1_path)) {
-        throw new Error(`Path ${abs_r1_path} doesnt exist`);
-      }
-      output = await fs.promises.readFile(abs_r1_path, 'utf-8');
+      clean_loading = printLoading(`Reading ${param.node.path}...`);
+      output = await superRead(param.relative_dir, param.node.path ?? '');
+      clean_loading?.clean();
       if (param.node.debug) printDebug(`File content: ${output}`, param.level);
       break;
     case "Write":
@@ -368,46 +365,48 @@ export async function executeNode(param: ExecuteNodeParam): Promise<string> {
             const extractor1 = await pipeline('feature-extraction', local_model_config.modelIdentifier);
             return Array.from(await extractor1(text, { pooling: 'mean', normalize: true }));
           case "hosted":
-            const extractor2 = await pipeline('feature-extraction', param.semantic_model.value, {
-              progress_callback(data) {
-                if (data.status === 'initiate') {
-                  if (!param.silent) clean_loading?.softClean();
-                  clean_loading = printLoading(`📦 Initiating download: ${data.file}`, param.level);
-                  return;
+            if (embedding_extractor == null) {
+              embedding_extractor = await pipeline('feature-extraction', param.semantic_model.value, {
+                progress_callback(data) {
+                  if (data.status === 'initiate') {
+                    if (!param.silent) clean_loading?.softClean();
+                    clean_loading = printLoading(`📦 Initiating download: ${data.file}`, param.level);
+                    return;
+                  }
+
+                  // 2. Triggered continuously as file chunks stream over the network
+                  if (data.status === 'progress') {
+                    const percentage = data.progress.toFixed(1);
+                    const loadedMb = (data.loaded / (1024 * 1024)).toFixed(2);
+                    const totalMb = (data.total / (1024 * 1024)).toFixed(2);
+
+                    // Simple ASCII progress bar calculation
+                    const barWidth = 20;
+                    const filledWidth = Math.floor((data.progress / 100) * barWidth);
+                    const progressBar = '█'.repeat(filledWidth) + '░'.repeat(barWidth - filledWidth);
+
+                    // Write directly to stdout to rewrite the same log line dynamically
+                    if (!param.silent) clean_loading?.softClean();
+                    clean_loading = printLoading(`[${progressBar}] ${percentage}% | ${loadedMb} MB / ${totalMb} MB (${data.file})`, param.level);
+                    return;
+                  }
+
+                  // 3. Triggered when an individual file completely finishes downloading
+                  if (data.status === 'done') {
+                    if (!param.silent) clean_loading?.softClean();
+                    clean_loading = printLoading(`[████████████████████] 100% | Complete! (${data.file})`, param.level);
+                    return;
+                  }
+
+                  // 4. Triggered when all pipeline components are compiled and ready to compute
+                  if (data.status === 'ready') {
+                    if (!param.silent) clean_loading?.softClean();
+                    clean_loading = printLoading(`All model elements are locked and ready for execution!`, param.level);
+                  }
                 }
-
-                // 2. Triggered continuously as file chunks stream over the network
-                if (data.status === 'progress') {
-                  const percentage = data.progress.toFixed(1);
-                  const loadedMb = (data.loaded / (1024 * 1024)).toFixed(2);
-                  const totalMb = (data.total / (1024 * 1024)).toFixed(2);
-
-                  // Simple ASCII progress bar calculation
-                  const barWidth = 20;
-                  const filledWidth = Math.floor((data.progress / 100) * barWidth);
-                  const progressBar = '█'.repeat(filledWidth) + '░'.repeat(barWidth - filledWidth);
-
-                  // Write directly to stdout to rewrite the same log line dynamically
-                  if (!param.silent) clean_loading?.softClean();
-                  clean_loading = printLoading(`[${progressBar}] ${percentage}% | ${loadedMb} MB / ${totalMb} MB (${data.file})`, param.level);
-                  return;
-                }
-
-                // 3. Triggered when an individual file completely finishes downloading
-                if (data.status === 'done') {
-                  if (!param.silent) clean_loading?.softClean();
-                  clean_loading = printLoading(`[████████████████████] 100% | Complete! (${data.file})`, param.level);
-                  return;
-                }
-
-                // 4. Triggered when all pipeline components are compiled and ready to compute
-                if (data.status === 'ready') {
-                  if (!param.silent) clean_loading?.softClean();
-                  clean_loading = printLoading(`All model elements are locked and ready for execution!`, param.level);
-                }
-              }
-            });
-            return Array.from(await extractor2(text, { pooling: 'mean', normalize: true }));
+              });
+            }
+            return Array.from(await embedding_extractor(text, { pooling: 'mean', normalize: true }));
           case "openai":
             const open_ai_embedding_model = param.semantic_model.value || 'text-embedding-3-small';
             return await param.llm.vectorize(text, open_ai_embedding_model);

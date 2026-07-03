@@ -1,6 +1,6 @@
 {
   "name": "@ssww.one/l4cli",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "",
   "main": "dist/index.js",
   "publishConfig": {
@@ -30,6 +30,12 @@
     "@ssww.one/l4": "^0.0.9",
     "axios": "^1.18.1",
     "dotenv": "^16.6.1",
-    "enquirer": "^2.4.1"
+    "enquirer": "^2.4.1",
+    "file-type": "^22.0.1",
+    "mammoth": "^1.12.0",
+    "officeparser": "^7.2.3",
+    "pdf-parse": "^2.4.5",
+    "read-chunk": "^5.0.0",
+    "xlsx": "^0.18.5"
   }
 }
