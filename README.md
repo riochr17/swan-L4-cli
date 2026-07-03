@@ -46,7 +46,7 @@ npm install -g @ssww.one/l4cli
 
 ### Pre-compiled Standalone Binaries
 
-Alternatively, you can download pre-compiled standalone executables for Linux, macOS, and Windows directly from the [v0.0.7-alpha Release Page](https://github.com/riochr17/swan-L4-cli/releases/tag/0.0.7-alpha).
+Alternatively, you can download pre-compiled standalone executables for Linux, macOS, and Windows directly from the [v0.0.8-alpha Release Page](https://github.com/riochr17/swan-L4-cli/releases/tag/0.0.8-alpha).
 
 ### Local Development Setup
 
