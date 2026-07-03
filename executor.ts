@@ -146,7 +146,8 @@ export async function executeNode(param: ExecuteNodeParam): Promise<string> {
   switch (param.node.type) {
     case "Read":
       clean_loading = printLoading(`Reading ${param.node.path}...`);
-      output = await superRead(param.relative_dir, param.node.path ?? '');
+      const normalize_read_path = replaceContext(param.node.path ?? '', param.old_context);
+      output = await superRead(param.relative_dir, normalize_read_path);
       clean_loading?.clean();
       if (param.node.debug) printDebug(`File content: ${output}`, param.level);
       break;
@@ -154,9 +155,10 @@ export async function executeNode(param: ExecuteNodeParam): Promise<string> {
       if (!param.node.path) {
         throw new Error(`Path is empty`);
       }
-      const abs_w1_path = path.resolve(param.relative_dir, param.node.path);
+      const normalize_write_path = replaceContext(param.node.path, param.old_context);
+      const abs_w1_path = path.resolve(param.relative_dir, normalize_write_path);
       await fs.promises.writeFile(abs_w1_path, param.node.content ? replaceContext(param.node.content || '', param.old_context) : param.old_context);
-      output = `Write file ${param.node.path} success`;
+      output = `Write file ${normalize_write_path} success`;
       break;
     case "Say":
       output = replaceContext(param.node.argument || '', param.old_context);
