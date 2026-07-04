@@ -48,4 +48,4 @@ runProgram({
   relative_dir,
   initial_context,
   semantic_model
-}).then(s => { }).catch(console.error);
+}).then(s => { }).catch(console.error).finally(() => process.exit(0));

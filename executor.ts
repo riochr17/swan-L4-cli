@@ -478,6 +478,47 @@ export async function executeNode(param: ExecuteNodeParam): Promise<string> {
       throw new ContinueLoop();
     case "Exit":
       throw new ExitProgram();
+    case "Iterate":
+      const iterate_prompt = param.node.argument ? replaceContext(param.node.argument, param.old_context) : param.old_context;
+      const iterate_full_prompt = [
+        '## User Context',
+        param.old_context,
+        '',
+        'Breakdown this user prompt into array of string (point items):',
+        iterate_prompt
+      ].join('\n');
+      if (!param.silent) clean_loading = printLoading('Asking LLM...', param.level);
+      const iterate_items: string[] = (await param.llm.askLLM(iterate_full_prompt, z.object({ answer: z.array(z.string()) }))).answer;
+      if (!param.silent) clean_loading.clean();
+      for (const iterate_item of iterate_items) {
+        try {
+          output = await executeNodes({
+            nodes: param.node.body,
+            old_context: iterate_item,
+            llm: param.llm,
+            customListener: param.customListener,
+            level: param.level,
+            relative_dir: param.relative_dir,
+            silent: param.silent,
+            semantic_model: param.semantic_model
+          });
+        } catch (err) {
+          if (err instanceof ExitLoop) {
+            break;
+          }
+          if (err instanceof ContinueLoop) {
+            continue;
+          }
+          throw err;
+        }
+      }
+      break;
+    case "ExitIteration":
+      throw new ExitLoop();
+    case "ContinueIteration":
+      throw new ContinueLoop();
+    case "ClearContext":
+      output = "";
   }
 
   if (param.node.assignVar) global_context[param.node.assignVar] = output;

@@ -1,0 +1,14 @@
+TITLE Iterate & Clear Context
+
+SAY What do you want to research
+LISTEN
+ITERATE breakdown user research into 4 points:
+    // THINK explore more about this research
+    SAY {Context}
+    SAY -----
+
+THINK what will be next after AI boom? (one sentece only)
+SAY {Context}
+SAY {Context}
+CLEAR CONTEXT
+SAY {Context} (Should be empty)
