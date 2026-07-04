@@ -1,5 +1,5 @@
 TITLE Calculator Agent
-SAY Enter an arithmetic expression (e.g. 12 + 45 * 2):
+SAY Enter an arithmetic expression (e.g. 12 + 45 * 2): 
 LISTEN
 THINK Calculate the mathematical result and output only the final number.
 SAY Result: {Context}

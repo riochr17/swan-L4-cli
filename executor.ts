@@ -9,6 +9,8 @@ import { AxiosError } from "axios";
 import path from "path";
 import { env, pipeline } from '@huggingface/transformers';
 import { superRead } from "./utility/file-reader";
+import readline from 'node:readline';
+import { setTimeout } from "node:timers/promises";
 
 let global_context: Record<string, string> = {};
 let macro_urls: Record<string, string> = {};
@@ -181,12 +183,18 @@ export async function executeNode(param: ExecuteNodeParam): Promise<string> {
       if (param.customListener) {
         output = await param.customListener(param.old_context);
       } else {
-        const answers: { prompt: string } = await prompt([{
-          type: "input",
-          name: 'prompt',
-          message: ' input'
-        }]);
-        output = answers.prompt;
+        const rl = readline.createInterface({
+          input: process.stdin,
+          output: process.stdout,
+        });
+        output = await new Promise((resolve) => rl.question(getNormalizedText("> Input: ", param.level || 0), resolve));
+
+        // const answers: { prompt: string } = await prompt([{
+        //   type: "input",
+        //   name: 'prompt',
+        //   message: ' input'
+        // }]);
+        // output = answers.prompt;
       }
       break;
     case "Think":
@@ -421,12 +429,13 @@ export async function executeNode(param: ExecuteNodeParam): Promise<string> {
         for (const chunk of chunks) {
           if (!param.silent) clean_loading = printLoading(`Vectorizing chunk ${k}/${chunks.length}...`, param.level);
           vectors.push(await vectorizer(chunk));
-          if (!param.silent) clean_loading.softClean();
+          await setTimeout(40);
+          if (!param.silent) clean_loading?.softClean();
           k++;
         }
         if (!param.silent) clean_loading = printLoading(`Vectorizing query...`, param.level);
         const query_vector = await vectorizer(param.node.query || '');
-        if (!param.silent) clean_loading.softClean();
+        if (!param.silent) clean_loading?.softClean();
         if (!param.silent) clean_loading = printLoading(`Calculate most relevant vectors...`, param.level);
         const top_most_indices = topNMostRelevantIndices(vectors, query_vector, result_chunks);
         if (!param.silent) clean_loading.clean();
@@ -514,9 +523,9 @@ function printLog(text: string, level: number = 0) {
   console.log(getNormalizedText(text, level));
 }
 
+let frameIndex = 0;
 function printLoading(label: string, level: number = 0): { clean: () => void, softClean: () => void } {
   const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-  let frameIndex = 0;
   const pipe_wrapper = ' ' + Array(level + 1).fill('│ ').join('');
 
   const loaderInterval = setInterval(() => {

@@ -1,10 +1,11 @@
 TITLE Read file or URL Test
 
-READ ../README.md
-SAY {Context}
+// READ ../README.md
+// SAY {Context}
 
 READ https://opendata.bandung.go.id/api/bigdata/sekretariat_daerah/alamat_kantor_kelurahan_di_kota_bandung_2?download=csv
-SAY THINK dokumen ini berisi apa?
+THINK terjemahkan csv tersebut ke readme table
+WRITE sample.md
 
 // READ https://bitcoin.org/bitcoin.pdf
 // [FIND] 2/50 find how bitcoin encrypt its blockchain?
