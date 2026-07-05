@@ -187,7 +187,9 @@ export async function executeNode(param: ExecuteNodeParam): Promise<string> {
           input: process.stdin,
           output: process.stdout,
         });
-        output = await new Promise((resolve) => rl.question(getNormalizedText("> Input: ", param.level || 0), resolve));
+        const rl_output: string = await new Promise((resolve) => rl.question(getNormalizedText("> Input: ", param.level || 0), resolve));
+        rl.close();
+        output = rl_output.trim();
 
         // const answers: { prompt: string } = await prompt([{
         //   type: "input",
@@ -519,6 +521,23 @@ export async function executeNode(param: ExecuteNodeParam): Promise<string> {
       throw new ContinueLoop();
     case "ClearContext":
       output = "";
+      break;
+    case "Context":
+      const context_outputs: string[] = [];
+      for (const item_node of param.node.body) {
+        context_outputs.push(await executeNode({
+          node: item_node,
+          old_context: param.old_context,
+          llm: param.llm,
+          customListener: param.customListener,
+          level: param.level,
+          relative_dir: param.relative_dir,
+          silent: param.silent,
+          semantic_model: param.semantic_model
+        }));
+      }
+      output = context_outputs.join('\n---\n');
+      break;
   }
 
   if (param.node.assignVar) global_context[param.node.assignVar] = output;

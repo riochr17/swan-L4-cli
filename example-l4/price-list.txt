@@ -1,0 +1,17 @@
+| No | Nama Buah          | Harga (Rp/kg) |
+| -- | ------------------ | ------------: |
+| 1  | Apel Fuji          |      Rp32.950 |
+| 2  | Apel Hijau         |      Rp36.250 |
+| 3  | Anggur Hijau       |      Rp63.500 |
+| 4  | Anggur Merah       |      Rp59.950 |
+| 5  | Pisang             |      Rp18.000 |
+| 6  | Jeruk Kintamani    |      Rp19.850 |
+| 7  | Mangga Harum Manis |      Rp26.850 |
+| 8  | Buah Naga          |      Rp26.950 |
+| 9  | Melon              |      Rp20.000 |
+| 10 | Semangka           |      Rp12.000 |
+| 11 | Pepaya             |      Rp10.000 |
+| 12 | Nanas              |      Rp15.000 |
+| 13 | Jambu Biji         |       Rp7.650 |
+| 14 | Alpukat            |      Rp29.000 |
+| 15 | Lengkeng           |      Rp24.500 |

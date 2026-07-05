@@ -1,6 +1,6 @@
 {
   "name": "@ssww.one/l4cli",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "",
   "main": "dist/index.js",
   "publishConfig": {
@@ -27,7 +27,7 @@
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
     "@ssww.one/framework": "^0.6.1",
-    "@ssww.one/l4": "^0.0.11",
+    "@ssww.one/l4": "^0.0.12",
     "axios": "^1.18.1",
     "dotenv": "^16.6.1",
     "enquirer": "^2.4.1",

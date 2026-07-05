@@ -1,0 +1,8 @@
+TITLE Multiple Context
+
+CONTEXT:
+  SAY This is A
+  SAY This is B
+  SAY This is C
+
+SAY {Context}

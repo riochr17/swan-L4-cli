@@ -1,0 +1,20 @@
+TITLE Store Staff
+
+WRITE scratchpad.txt ""
+SAY Welcome to our Fresh Fruit Store
+LOOP:
+  $last_context CONTEXT:
+    READ scratchpad.txt
+    $user_request LISTEN
+  IF user wants to buy specific type of fruit with specific amount:
+    $cart THINK extract user request and quantity from this request {$last_context}
+    READ price-list.txt
+    THINK calculate price based on this user cart {$cart}
+    SAY THINK tell user!
+    EXIT LOOP
+  ELSE:
+    CONTEXT:
+      READ price-list.txt
+      READ scratchpad.txt
+    SAY THINK answer user request: {$user_request}
+    WRITE scratchpad.txt {$last_context}
